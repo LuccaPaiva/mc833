@@ -56,14 +56,14 @@ int main (int argc, char **argv) {
         printf("No available ports found\n");
         return 1;
     }
-        
-
-    printf("Using port %d\n", port);
 
     bzero(&servaddr, sizeof(servaddr));
     servaddr.sin_family      = AF_INET;
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
     servaddr.sin_port        = htons(port);   
+
+    printf("Using port %d\n", port);
+    printf("IP  %d\n", servaddr.sin_addr.s_addr);
 
     if (bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == -1) {
         perror("bind");

@@ -16,7 +16,8 @@ int main(int argc, char **argv) {
     int    sockfd, n;
     char   recvline[MAXLINE + 1];
     char   error[MAXLINE + 1];
-    struct sockaddr_in servaddr;
+    struct sockaddr_in servaddr, localaddr;
+    socklen_t addrlen = sizeof(localaddr);
 
     if (argc != 2) {
         strcpy(error,"uso: ");
@@ -43,6 +44,15 @@ int main(int argc, char **argv) {
         perror("connect error");
         exit(1);
     }
+
+    // Get the information for the local socket
+    if (getsockname(sockfd, (struct sockaddr *)&localaddr, &addrlen) == -1) {
+        perror("getsockname");
+        exit(1);
+    }
+
+    printf("Local IP address: %s\n", inet_ntoa(localaddr.sin_addr));
+    printf("Local port number: %d\n", ntohs(localaddr.sin_port));
 
     while ( (n = read(sockfd, recvline, MAXLINE)) > 0) {
         recvline[n] = 0;
