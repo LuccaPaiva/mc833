@@ -8,6 +8,8 @@
 #include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
+#include <arpa/inet.h>
+
 
 #define LISTENQ 10
 #define MAXDATASIZE 100
@@ -37,11 +39,11 @@ int get_available_port(struct sockaddr_in *addr) {
 
 int main (int argc, char **argv) {
     int    listenfd, connfd;
-    struct sockaddr_in servaddr, addr;
+    struct sockaddr_in servaddr;
     char   buf[MAXDATASIZE];
     time_t ticks;
 
-    int port = get_available_port(&addr);
+    int port = get_available_port(&servaddr);
 
     if (port == -1){
         printf("No available ports found\n");
@@ -54,7 +56,6 @@ int main (int argc, char **argv) {
         exit(1);
     }
 
-    servaddr = addr;
 
     if (bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == -1) {
         perror("bind");
@@ -66,18 +67,17 @@ int main (int argc, char **argv) {
         exit(1);
     }
 
-    printf("IP: %d\n", inet_ntoa(servaddr.sin_addr));
+    printf("Server IP: %s\n", inet_ntoa(servaddr.sin_addr));
     printf("port: %d\n", port);
 
-    for ( ; ; ) {
-      if ((connfd = accept(listenfd, (struct sockaddr *) NULL, NULL)) == -1 ) {
-        perror("accept");
-        exit(1);
+    for (;;) {
+        if ((connfd = accept(listenfd, (struct sockaddr *)NULL, NULL)) == -1) {
+            perror("Erro ao aceitar a conexão");
+            exit(1);
         }
 
         ticks = time(NULL);
         snprintf(buf, sizeof(buf), "Hello from server!\nTime: %.24s\r\n", ctime(&ticks));
-        write(connfd, buf, strlen(buf));
 
         struct sockaddr_in cliaddr;
         socklen_t clilen = sizeof(cliaddr);
@@ -86,10 +86,29 @@ int main (int argc, char **argv) {
             exit(1);
         }
 
-        printf("Client IP: %d\n", inet_ntoa(cliaddr.sin_addr));
+        printf("Client IP: %s\n", inet_ntoa(cliaddr.sin_addr));
         printf("Client Port: %d\n", ntohs(cliaddr.sin_port));
 
-        close(connfd);
+        write(connfd, buf, strlen(buf));
+
+        // Recebe e imprime uma mensagem do cliente
+        ssize_t n = read(connfd, buf, MAXDATASIZE);
+        if (n < 0) {
+            perror("Erro ao ler a mensagem do cliente");
+            close(connfd);
+            continue;
+        } else if (n == 0) {
+            // Conexão encerrada pelo cliente
+            close(connfd);
+            continue;
+        } else {
+            buf[n] = '\0'; // Adiciona um terminador de string
+            printf("Mensagem do cliente: %s\n", buf);
+
+            // Fecha a conexão após receber e imprimir a mensagem
+            close(connfd);
+            break; // Sai do loop para aceitar novas conexões
+        }
     }
     return(0);
 }
