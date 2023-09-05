@@ -6,7 +6,6 @@
 #include <netdb.h>
 #include <string.h>
 #include <errno.h>
-#include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -16,6 +15,7 @@ int main(int argc, char **argv) {
     int    sockfd, n;
     char   recvline[MAXLINE + 1];
     char   error[MAXLINE + 1];
+    char   message[MAXLINE + 1];
     struct sockaddr_in servaddr, localaddr;
     socklen_t addrlen = sizeof(localaddr);
 
@@ -53,6 +53,16 @@ int main(int argc, char **argv) {
 
     printf("Local IP address: %s\n", inet_ntoa(localaddr.sin_addr));
     printf("Local port number: %d\n", ntohs(localaddr.sin_port));
+
+    fgets(message, MAXLINE, stdin);
+
+    // Send the message to the server
+    n = write(sockfd, message, strlen(message));
+
+    if (n < 0) {
+        perror("write error");
+        exit(1);
+    }
 
     while ( (n = read(sockfd, recvline, MAXLINE)) > 0) {
         recvline[n] = 0;
