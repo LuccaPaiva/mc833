@@ -8,6 +8,8 @@
 #include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
+#include <arpa/inet.h>
+
 
 #define LISTENQ 10
 #define MAXDATASIZE 100
@@ -37,11 +39,11 @@ int get_available_port(struct sockaddr_in *addr) {
 
 int main (int argc, char **argv) {
     int    listenfd, connfd;
-    struct sockaddr_in servaddr, addr;
+    struct sockaddr_in servaddr;
     char   buf[MAXDATASIZE];
     time_t ticks;
 
-    int port = get_available_port(&addr);
+    int port = get_available_port(&servaddr);
 
     if (port == -1){
         printf("No available ports found\n");
@@ -54,7 +56,6 @@ int main (int argc, char **argv) {
         exit(1);
     }
 
-    servaddr = addr;
 
     if (bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == -1) {
         perror("bind");
@@ -66,7 +67,7 @@ int main (int argc, char **argv) {
         exit(1);
     }
 
-    printf("IP: %d\n", inet_ntoa(servaddr.sin_addr));
+    printf("Server IP: %s\n", inet_ntoa(servaddr.sin_addr));
     printf("port: %d\n", port);
 
     for ( ; ; ) {
@@ -86,7 +87,7 @@ int main (int argc, char **argv) {
             exit(1);
         }
 
-        printf("Client IP: %d\n", inet_ntoa(cliaddr.sin_addr));
+        printf("Client IP: %s\n", inet_ntoa(cliaddr.sin_addr));
         printf("Client Port: %d\n", ntohs(cliaddr.sin_port));
 
         close(connfd);
