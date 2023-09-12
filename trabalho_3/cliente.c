@@ -12,14 +12,14 @@
 #define MAXLINE 4096
 
 int main(int argc, char **argv) {
-    int    sockfd, n;
+    int    sockfd, n, servport;
     char   recvline[MAXLINE + 1];
     char   error[MAXLINE + 1];
     struct sockaddr_in servaddr, localaddr;
     socklen_t addrlen = sizeof(localaddr);
 
     // Verifica se o programa foi chamado com a quantidade correta de argumentos
-    if (argc != 2) {
+    if (argc != 3) {
         strcpy(error, "uso: ");
         strcat(error, argv[0]);
         strcat(error, " <IPaddress>");
@@ -36,7 +36,8 @@ int main(int argc, char **argv) {
     // Configura o endereço do servidor para o qual vamos nos conectar
     bzero(&servaddr, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
-    servaddr.sin_port = htons(1024);
+    servport = atoi(argv[2]);
+    servaddr.sin_port = htons(servport);
     if (inet_pton(AF_INET, argv[1], &servaddr.sin_addr) <= 0) {
         perror("inet_pton error");
         exit(1);
