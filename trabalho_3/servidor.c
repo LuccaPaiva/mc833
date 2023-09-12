@@ -115,7 +115,7 @@ int main (int argc, char **argv) {
         // Envia a mensagem de resposta para o cliente
         write(connfd, buf, strlen(buf));
 
-        close(connfd);
+        //close(connfd);
     }
     return(0);
 }
