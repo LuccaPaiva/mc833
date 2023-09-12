@@ -10,10 +10,10 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
-
 #define LISTENQ 10
 #define MAXDATASIZE 100
 
+// Função para encontrar uma porta disponível
 int get_available_port(struct sockaddr_in *addr) {
     for (int port = 1024; port <= 65535; port++) {
         int sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -21,7 +21,6 @@ int get_available_port(struct sockaddr_in *addr) {
             continue;
         }
 
-        // bzero(&addr, sizeof(addr)); // This line is no longer needed
         addr->sin_family = AF_INET;
         addr->sin_port = htons(port);
         addr->sin_addr.s_addr = INADDR_ANY;
@@ -34,7 +33,7 @@ int get_available_port(struct sockaddr_in *addr) {
         close(sockfd);
     }
 
-    return -1;
+    return -1; // Retorna -1 se nenhuma porta estiver disponível
 }
 
 int main (int argc, char **argv) {
@@ -43,6 +42,7 @@ int main (int argc, char **argv) {
     char   buf[MAXDATASIZE];
     time_t ticks;
 
+    // Obtém uma porta disponível usando a função get_available_port
     int port = get_available_port(&servaddr);
 
     if (port == -1){
@@ -50,36 +50,41 @@ int main (int argc, char **argv) {
         return 1;
     }
 
+    // Cria um socket para ouvir conexões
     listenfd = socket(AF_INET, SOCK_STREAM, 0);
     if (listenfd == -1) {
         perror("socket");
         exit(1);
     }
 
-
+    // Associa o socket à porta e endereço IP obtidos
     if (bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == -1) {
         perror("bind");
         exit(1);
     }
 
+    // Inicia a escuta por conexões
     if (listen(listenfd, LISTENQ) == -1) {
         perror("listen");
         exit(1);
     }
 
+    // Exibe o endereço IP do servidor e a porta
     printf("Server IP: %s\n", inet_ntoa(servaddr.sin_addr));
     printf("port: %d\n", port);
 
-    for ( ; ; ) {
-      if ((connfd = accept(listenfd, (struct sockaddr *) NULL, NULL)) == -1 ) {
-        perror("accept");
-        exit(1);
+    for (;;) {
+        // Aceita uma conexão de cliente
+        if ((connfd = accept(listenfd, (struct sockaddr *)NULL, NULL)) == -1) {
+            perror("Erro ao aceitar a conexão");
+            exit(1);
         }
 
+        // Obtém o tempo atual e prepara uma mensagem de resposta
         ticks = time(NULL);
         snprintf(buf, sizeof(buf), "Hello from server!\nTime: %.24s\r\n", ctime(&ticks));
-        write(connfd, buf, strlen(buf));
 
+        // Obtém informações sobre o cliente (endereço IP e porta)
         struct sockaddr_in cliaddr;
         socklen_t clilen = sizeof(cliaddr);
         if (getpeername(connfd, (struct sockaddr *)&cliaddr, &clilen) == -1) {
@@ -90,7 +95,27 @@ int main (int argc, char **argv) {
         printf("Client IP: %s\n", inet_ntoa(cliaddr.sin_addr));
         printf("Client Port: %d\n", ntohs(cliaddr.sin_port));
 
-        close(connfd);
+        // Envia a mensagem de resposta para o cliente
+        write(connfd, buf, strlen(buf));
+
+        // Recebe e imprime uma mensagem do cliente
+        ssize_t n = read(connfd, buf, MAXDATASIZE);
+        if (n < 0) {
+            perror("Erro ao ler a mensagem do cliente");
+            close(connfd);
+            continue;
+        } else if (n == 0) {
+            // Conexão encerrada pelo cliente
+            close(connfd);
+            continue;
+        } else {
+            buf[n] = '\0'; // Adiciona um terminador de string
+            printf("Mensagem do cliente: %s\n", buf);
+
+            // Fecha a conexão após receber e imprimir a mensagem
+            close(connfd);
+            break; // Sai do loop para aceitar novas conexões
+        }
     }
     return(0);
 }

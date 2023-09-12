@@ -15,45 +15,63 @@ int main(int argc, char **argv) {
     int    sockfd, n;
     char   recvline[MAXLINE + 1];
     char   error[MAXLINE + 1];
+    char   message[MAXLINE + 1];
     struct sockaddr_in servaddr, localaddr;
     socklen_t addrlen = sizeof(localaddr);
 
+    // Verifica se o programa foi chamado com a quantidade correta de argumentos
     if (argc != 2) {
-        strcpy(error,"uso: ");
-        strcat(error,argv[0]);
-        strcat(error," <IPaddress>");
+        strcpy(error, "uso: ");
+        strcat(error, argv[0]);
+        strcat(error, " <IPaddress>");
         perror(error);
         exit(1);
     }
 
-    if ( (sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    // Cria um socket
+    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("socket error");
         exit(1);
     }
 
+    // Configura o endereço do servidor para o qual vamos nos conectar
     bzero(&servaddr, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
-    servaddr.sin_port        = htons(1024);
+    servaddr.sin_port = htons(1024);
     if (inet_pton(AF_INET, argv[1], &servaddr.sin_addr) <= 0) {
         perror("inet_pton error");
         exit(1);
     }
 
-    if (connect(sockfd, (struct sockaddr *) &servaddr, sizeof(servaddr)) < 0) {
+    // Estabelece uma conexão com o servidor
+    if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
         perror("connect error");
         exit(1);
     }
 
-    // Get the information for the local socket
+    // Obtém informações sobre o socket local
     if (getsockname(sockfd, (struct sockaddr *)&localaddr, &addrlen) == -1) {
         perror("getsockname");
         exit(1);
     }
 
+    // Exibe o endereço IP e o número da porta local
     printf("Local IP address: %s\n", inet_ntoa(localaddr.sin_addr));
     printf("Local port number: %d\n", ntohs(localaddr.sin_port));
 
-    while ( (n = read(sockfd, recvline, MAXLINE)) > 0) {
+    // Lê uma mensagem da entrada padrão (stdin)
+    fgets(message, MAXLINE, stdin);
+
+    // Envia a mensagem para o servidor
+    n = write(sockfd, message, strlen(message));
+
+    if (n < 0) {
+        perror("write error");
+        exit(1);
+    }
+
+    // Aguarda e lê a resposta do servidor
+    while ((n = read(sockfd, recvline, MAXLINE)) > 0) {
         recvline[n] = 0;
         if (fputs(recvline, stdout) == EOF) {
             perror("fputs error");
