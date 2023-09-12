@@ -16,6 +16,7 @@ int main(int argc, char **argv) {
     char   recvline[MAXLINE + 1];
     char   error[MAXLINE + 1];
     char   message[MAXLINE + 1];
+    char   message[MAXLINE + 1];
     struct sockaddr_in servaddr, localaddr;
     socklen_t addrlen = sizeof(localaddr);
 

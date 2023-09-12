@@ -39,6 +39,7 @@ int get_available_port(struct sockaddr_in *addr) {
 int main (int argc, char **argv) {
     int    listenfd, connfd;
     struct sockaddr_in servaddr;
+    struct sockaddr_in servaddr;
     char   buf[MAXDATASIZE];
     time_t ticks;
 
@@ -92,6 +93,7 @@ int main (int argc, char **argv) {
             exit(1);
         }
 
+        printf("Client IP: %s\n", inet_ntoa(cliaddr.sin_addr));
         printf("Client IP: %s\n", inet_ntoa(cliaddr.sin_addr));
         printf("Client Port: %d\n", ntohs(cliaddr.sin_port));
 
