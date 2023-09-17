@@ -38,11 +38,27 @@ int get_available_port(struct sockaddr_in *addr) {
     return -1; // Retorna -1 se nenhuma porta estiver disponível
 }
 
+void send_command(int connfd) {
+    // Gere um número aleatório entre 1 e 3
+    int numero = rand() % 3 + 1;
+    
+    // Crie um array de strings com três opções
+    char *str[3] = {"Opção A", "Opção B", "Opção C"};
+    
+    // Envie a opção escolhida para o cliente
+    write(connfd, str[numero - 1], strlen(str[numero - 1]));
+}
+
+void write_log(FILE *log_file, const char* str){
+    printf("File: %s", str);
+    fprintf(log_file, "%s", str);
+}
+
 int main (int argc, char **argv) {
     int    listenfd, connfd;
     struct sockaddr_in servaddr;
     char   buf[MAXDATASIZE];
-    char   error[MAXLINE + 1];
+    char   error[MAXLINE + 1], line[MAXLINE + 1];
     time_t ticks;
 
     if (argc != 2) {
@@ -50,6 +66,12 @@ int main (int argc, char **argv) {
         strcat(error, argv[0]);
         strcat(error, " <IPaddress>");
         perror(error);
+        exit(1);
+    }
+
+    FILE *log_file = fopen("server_log.txt", "w");
+    if (log_file == NULL) {
+        perror("Failed to open log file");
         exit(1);
     }
 
@@ -71,29 +93,36 @@ int main (int argc, char **argv) {
     listenfd = socket(AF_INET, SOCK_STREAM, 0);
     if (listenfd == -1) {
         perror("socket");
+        fclose(log_file);
         exit(1);
     }
 
     // Associa o socket à porta e endereço IP obtidos
     if (bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == -1) {
         perror("bind");
+        fclose(log_file);
         exit(1);
     }
 
     // Inicia a escuta por conexões
     if (listen(listenfd, LISTENQ) == -1) {
         perror("listen");
+        fclose(log_file);
         exit(1);
     }
 
     // Exibe o endereço IP do servidor e a porta
-    printf("Server IP: %s\n", inet_ntoa(servaddr.sin_addr));
-    printf("port: %d\n", port);
+    snprintf(line, sizeof(line), "Server IP: %s\n", inet_ntoa(servaddr.sin_addr));
+    write_log(log_file, line);
+    snprintf(line, sizeof(line), "Server port: %d\n", ntohs(servaddr.sin_port));
+    write_log(log_file, line);
+
 
     for (;;) {
         // Aceita uma conexão de cliente
         if ((connfd = accept(listenfd, (struct sockaddr *)NULL, NULL)) == -1) {
             perror("Erro ao aceitar a conexão");
+            fclose(log_file);
             exit(1);
         }
 
@@ -106,16 +135,20 @@ int main (int argc, char **argv) {
         socklen_t clilen = sizeof(cliaddr);
         if (getpeername(connfd, (struct sockaddr *)&cliaddr, &clilen) == -1) {
             perror("getpeername");
+            fclose(log_file);
             exit(1);
         }
 
-        printf("Client IP: %s\n", inet_ntoa(cliaddr.sin_addr));
-        printf("Client Port: %d\n", ntohs(cliaddr.sin_port));
+        snprintf(line, sizeof(line), "Client connected from port: %d\n", ntohs(cliaddr.sin_port));
+        write_log(log_file, line);
 
         // Envia a mensagem de resposta para o cliente
         write(connfd, buf, strlen(buf));
 
+        send_command(connfd);
+
         close(connfd);
     }
+    fclose(log_file);
     return(0);
 }

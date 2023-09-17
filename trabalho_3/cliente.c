@@ -11,6 +11,20 @@
 
 #define MAXLINE 4096
 
+void execute_command(const char *str){
+    /*if(strcmp(str, "Opção A")){
+        sleep(1);
+    }
+    else if(strcmp(str, "Opção B")){
+        printf("BBBBBBBB\n");
+    }
+    if(strcmp(str, "Opção C")){
+        printf("CCCCCCC\n");
+    }*/
+    sleep(1);
+    printf("Comando %s executado com sucesso\n", str);
+}
+
 int main(int argc, char **argv) {
     int    sockfd, n, servport;
     char   recvline[MAXLINE + 1];
@@ -67,6 +81,10 @@ int main(int argc, char **argv) {
             perror("fputs error");
             exit(1);
         }
+        execute_command(recvline);
+        /*
+        
+        */
     }
 
     if (n < 0) {
