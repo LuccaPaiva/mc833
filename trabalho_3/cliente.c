@@ -11,7 +11,7 @@
 
 #define MAXLINE 4096
 
-void execute_command(const char *str){
+int execute_command(const char *str){
     /*if(strcmp(str, "Opção A")){
         sleep(1);
     }
@@ -23,11 +23,12 @@ void execute_command(const char *str){
     }*/
     sleep(1);
     printf("Comando %s executado com sucesso\n", str);
+    return strcmp(str, "Stop");
 }
 
 int main(int argc, char **argv) {
-    int    sockfd, n, servport;
-    char   recvline[MAXLINE + 1];
+    int    sockfd, n, servport, flag = 1;
+    char   recvline[MAXLINE + 1], message[MAXLINE + 1];
     char   error[MAXLINE + 1];
     struct sockaddr_in servaddr, localaddr;
     socklen_t addrlen = sizeof(localaddr);
@@ -77,14 +78,16 @@ int main(int argc, char **argv) {
     // Aguarda e lê a resposta do servidor
     while ((n = read(sockfd, recvline, MAXLINE)) > 0) {
         recvline[n] = 0;
-        if (fputs(recvline, stdout) == EOF) {
-            perror("fputs error");
-            exit(1);
-        }
-        execute_command(recvline);
-        /*
-        
-        */
+        flag = execute_command(recvline);
+        snprintf(message, sizeof(message), "%d", flag);
+        n = write(sockfd, message, strlen(message));
+        if(!flag)
+            break;
+    }
+
+    if(!flag){
+        printf("Fechando conecao com servidor\n");
+        close(sockfd);
     }
 
     if (n < 0) {
