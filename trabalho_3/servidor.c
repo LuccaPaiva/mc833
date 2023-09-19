@@ -16,7 +16,78 @@
 #define MAXLINE 4096
 #define NUMCONNECTIONS 2
 
-int send_command(int connfd) {
+void write_log(FILE *log_file, const char* str){
+    fprintf(log_file, "%s", str);
+    fflush(log_file);
+}
+
+int Socket(int family, int type, int flags, FILE *log_file) {
+    int sockfd;
+    if ((sockfd = socket(family, type, flags)) < 0) {
+        perror("socket");
+        fclose(log_file);
+        exit(1);
+    } else
+        return sockfd;
+}
+
+int Bind(int listenfd, struct sockaddr *servaddr, socklen_t addrlen, FILE *log_file) {
+    char line[MAXLINE + 1]; // Declare a variável line aqui
+
+    if (bind(listenfd, servaddr, addrlen) == -1) {
+        perror("bind");
+        fclose(log_file);
+        exit(1); // Encerra o programa em caso de erro no bind
+    } else {
+        // Exibe o endereço IP do servidor e a porta
+        snprintf(line, sizeof(line), "Server IP: %s\n", inet_ntoa(((struct sockaddr_in *)servaddr)->sin_addr));
+        write_log(log_file, line);
+        snprintf(line, sizeof(line), "Server port: %d\n", ntohs(((struct sockaddr_in *)servaddr)->sin_port));
+        write_log(log_file, line);
+        return 0; // Retorna 0 para indicar sucesso
+    }
+}
+
+
+
+void Listen(int listenfd, FILE *log_file) {
+    if (listen(listenfd, LISTENQ) == -1) {
+        perror("listen");
+        fclose(log_file);
+        exit(1);
+    }
+}
+
+int Accept(int listenfd, FILE *log_file){
+    int connfd;
+    if ((connfd = accept(listenfd, (struct sockaddr *)NULL, NULL)) == -1) {
+        perror("Erro ao aceitar a conexão");
+        fclose(log_file);
+        exit(1);
+    } else
+        return connfd;
+}
+
+pid_t Fork(FILE *log_file){
+    pid_t child_pid;
+    if ( (child_pid = fork()) == -1) {
+        perror("fork");
+        fclose(log_file);
+        exit(1);
+    }
+    return child_pid;
+}
+
+void GetPeerName(int sockfd, struct sockaddr *addr, socklen_t *addrlen, FILE *log_file) {
+    if (getpeername(sockfd, addr, addrlen) == -1) {
+        perror("getpeername");
+        fclose(log_file);
+        exit(1);
+    }
+}
+
+//Funcao que 
+int send_command(int connfd, int id, FILE* log_file) {
     char buf[MAXLINE];
     // Gere um número aleatório entre 1 e 3
     int numero = rand() % 3;
@@ -26,23 +97,52 @@ int send_command(int connfd) {
     
     snprintf(buf, sizeof(buf), "%s", str[numero]);
     write(connfd, buf, strlen(buf));
+    snprintf(buf, sizeof(buf), "%d - %s\n", id, str[numero]);
+    write_log(log_file, buf);
     return numero;
 }
 
-void write_log(FILE *log_file, const char* str){
-    fprintf(log_file, "%s", str);
-    fflush(log_file);
+void HandleChildProcess(int child_pid, int listenfd, int connfd, FILE *log_file, char *recvline) {
+    if (child_pid == 0) { // Processo filho
+        close(listenfd); // Fecha o socket de escuta no processo filho
+
+        // Obtém o tempo atual e prepara uma mensagem de resposta
+        int num = 0;
+        char line[MAXLINE + 1];
+        time_t ticks;
+        ticks = time(NULL);
+
+        // Obtém informações sobre o cliente (endereço IP e porta)
+        struct sockaddr_in cliaddr;
+        socklen_t clilen = sizeof(cliaddr);
+
+        GetPeerName(connfd, (struct sockaddr *)&cliaddr, &clilen, log_file);
+
+        snprintf(line, sizeof(line), "%d - %.24s Abrindo conecao\n\tClient connected from port: %d\n", getpid(), ctime(&ticks), ntohs(cliaddr.sin_port));
+        write_log(log_file, line);
+
+        snprintf(line, sizeof(line), "\tServer Thread: %d\n", getpid());
+        write_log(log_file, line);
+
+        int n = 1;
+        while (num != 2 && n) {
+            // Chama a função para enviar um comando ao cliente
+            num = send_command(connfd, getpid(), log_file);
+            n = read(connfd, recvline, MAXLINE);
+        }
+        snprintf(line, sizeof(line), "\t%.24s Fechando\n", ctime(&ticks));
+        write_log(log_file, line);
+        exit(0); // O processo filho deve sair quando terminar o atendimento ao cliente
+    }
+    close(connfd); // Fecha o socket no processo pai, pois o processo filho lidará com o cliente
 }
 
-void sigchld_handler(int signo) {
-    while (waitpid(-1, NULL, WNOHANG) > 0);
-}
+
 
 int main (int argc, char **argv) {
     int    listenfd, connfd, numConections = NUMCONNECTIONS;
     struct sockaddr_in servaddr;
-    char   error[MAXLINE + 1], line[MAXLINE + 1], recvline[MAXLINE + 1];
-    time_t ticks;
+    char   error[MAXLINE + 1], recvline[MAXLINE + 1];
 
     if (argc != 2) {
         strcpy(error, "uso: ");
@@ -71,84 +171,20 @@ int main (int argc, char **argv) {
     servaddr.sin_addr.s_addr = INADDR_ANY;
 
     // Cria um socket para ouvir conexões
-    listenfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (listenfd == -1) {
-        perror("socket");
-        fclose(log_file);
-        exit(1);
-    }
+    listenfd = Socket(AF_INET, SOCK_STREAM, 0, log_file);
 
     // Associa o socket à porta e endereço IP obtidos
-    if (bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == -1) {
-        perror("bind");
-        fclose(log_file);
-        exit(1);
-    }
+    Bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr), log_file);
 
-    // Inicia a escuta por conexões
-    if (listen(listenfd, LISTENQ) == -1) {
-        perror("listen");
-        fclose(log_file);
-        exit(1);
-    }
-
-    // Exibe o endereço IP do servidor e a porta
-    snprintf(line, sizeof(line), "Server IP: %s\n", inet_ntoa(servaddr.sin_addr));
-    write_log(log_file, line);
-    snprintf(line, sizeof(line), "Server port: %d\n", ntohs(servaddr.sin_port));
-    write_log(log_file, line);
+    Listen(listenfd, log_file);
 
     while (numConections--) {
         // Aceita uma conexão de cliente
-        if ((connfd = accept(listenfd, (struct sockaddr *)NULL, NULL)) == -1) {
-            perror("Erro ao aceitar a conexão");
-            fclose(log_file);
-            exit(1);
-        }
+        connfd = Accept(listenfd, log_file);
         // Cria um novo processo filho para lidar com o cliente
-        pid_t child_pid;
-        if ( (child_pid = fork()) == -1) {
-            perror("fork");
-            fclose(log_file);
-            exit(1);
-        }
+        pid_t child_pid = Fork(log_file);
 
-        if (child_pid == 0) { // Processo filho
-            close(listenfd); // Fecha o socket de escuta no processo filho
-
-            // Obtém o tempo atual e prepara uma mensagem de resposta
-            int num = 0;
-            char line[MAXLINE + 1];
-            ticks = time(NULL);
-            snprintf(line, sizeof(line), "Connection at time: %.24s\r\n", ctime(&ticks));
-            write_log(log_file, line);
-
-            // Obtém informações sobre o cliente (endereço IP e porta)
-            struct sockaddr_in cliaddr;
-            socklen_t clilen = sizeof(cliaddr);
-
-            if (getpeername(connfd, (struct sockaddr *)&cliaddr, &clilen) == -1) {
-                perror("getpeername");
-                fclose(log_file);
-                exit(1);
-            }
-
-            snprintf(line, sizeof(line), "Client connected from port: %d\n", ntohs(cliaddr.sin_port));
-            write_log(log_file, line);
-
-            snprintf(line, sizeof(line), "Server Tread: %d\n", getpid());
-            write_log(log_file, line);
-
-            int n = 1;
-            while(num != 2 && n){
-                // Chama a função para enviar um comando ao cliente
-                num = send_command(connfd);
-                n = read(connfd, recvline, MAXLINE);
-            }
-            
-            exit(0); // O processo filho deve sair quando terminar o atendimento ao cliente
-        }
-        close(connfd); // Fecha o socket no processo pai, pois o processo filho lidará com o cliente
+        HandleChildProcess(child_pid, listenfd, connfd, log_file, recvline);
     }
 
     fclose(log_file);

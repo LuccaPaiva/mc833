@@ -13,7 +13,7 @@
 
 int execute_command(const char *str){
     sleep(1);
-    printf("-%s executada com sucesso\n", str);
+    printf("\t-%s executada com sucesso\n", str);
     return strcmp(str, "DESCONECTE");
 }
 
@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
         strcpy(error, "uso: ");
         strcat(error, argv[0]);
         strcat(error, " <IPaddress>");
-        perror(error, argv[1]);
+        perror(error);
         strcat(error, " <Port>");
         perror(error);
         exit(1);
