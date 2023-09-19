@@ -8,10 +8,18 @@
 #include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
+#include <pthread.h> // Biblioteca para threads
 
 #define LISTENQ 10
 #define MAXDATASIZE 100
 
+// Estrutura para passar dados para a função da thread
+struct ThreadData {
+    int connfd;
+    struct sockaddr_in cliaddr;
+};
+
+// Função para encontrar uma porta disponível
 int get_available_port(struct sockaddr_in *addr) {
     for (int port = 1024; port <= 65535; port++) {
         int sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -19,7 +27,6 @@ int get_available_port(struct sockaddr_in *addr) {
             continue;
         }
 
-        // bzero(&addr, sizeof(addr)); // This line is no longer needed
         addr->sin_family = AF_INET;
         addr->sin_port = htons(port);
         addr->sin_addr.s_addr = INADDR_ANY;
@@ -35,11 +42,32 @@ int get_available_port(struct sockaddr_in *addr) {
     return -1;
 }
 
+// Função executada por cada thread
+void *client_handler(void *arg) {
+    struct ThreadData *data = (struct ThreadData *)arg;
+    int connfd = data->connfd;
+    struct sockaddr_in cliaddr = data->cliaddr;
+    char buf[MAXDATASIZE];
+    time_t ticks;
+
+    ticks = time(NULL);
+    snprintf(buf, sizeof(buf), "Hello from server!\nTime: %.24s\r\n", ctime(&ticks));
+
+    // Envia a mensagem de resposta para o cliente
+    write(connfd, buf, strlen(buf));
+
+    printf("Client IP: %s\n", inet_ntoa(cliaddr.sin_addr));
+    printf("Client Port: %d\n", ntohs(cliaddr.sin_port));
+
+    close(connfd);
+    free(arg); // Libera a estrutura de dados alocada dinamicamente
+    return NULL;
+}
+
 int main (int argc, char **argv) {
     int    listenfd, connfd;
     struct sockaddr_in servaddr, addr;
-    char   buf[MAXDATASIZE];
-    time_t ticks;
+    char   error[MAXDATASIZE + 1];
 
     int port = get_available_port(&addr);
 
@@ -66,30 +94,30 @@ int main (int argc, char **argv) {
         exit(1);
     }
 
-    printf("IP: %d\n", inet_ntoa(servaddr.sin_addr));
+    printf("IP: %s\n", inet_ntoa(servaddr.sin_addr));
     printf("port: %d\n", port);
 
-    for ( ; ; ) {
-      if ((connfd = accept(listenfd, (struct sockaddr *) NULL, NULL)) == -1 ) {
-        perror("accept");
-        exit(1);
-        }
-
-        ticks = time(NULL);
-        snprintf(buf, sizeof(buf), "Hello from server!\nTime: %.24s\r\n", ctime(&ticks));
-        write(connfd, buf, strlen(buf));
-
+    while (1) {
         struct sockaddr_in cliaddr;
         socklen_t clilen = sizeof(cliaddr);
-        if (getpeername(connfd, (struct sockaddr *)&cliaddr, &clilen) == -1) {
-            perror("getpeername");
+        if ((connfd = accept(listenfd, (struct sockaddr *)&cliaddr, &clilen)) == -1 ) {
+            perror("accept");
             exit(1);
         }
 
-        printf("Client IP: %d\n", inet_ntoa(cliaddr.sin_addr));
-        printf("Client Port: %d\n", ntohs(cliaddr.sin_port));
+        // Aloca espaço para os dados que serão passados para a thread
+        struct ThreadData *data = (struct ThreadData *)malloc(sizeof(struct ThreadData));
+        data->connfd = connfd;
+        data->cliaddr = cliaddr;
 
-        close(connfd);
+        // Cria uma nova thread para lidar com o cliente
+        pthread_t tid;
+        if (pthread_create(&tid, NULL, client_handler, data) != 0) {
+            perror("pthread_create");
+            free(data);
+        }
     }
+
+    close(listenfd);
     return(0);
 }
