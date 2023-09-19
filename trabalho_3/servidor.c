@@ -16,51 +16,13 @@
 #define MAXLINE 4096
 #define NUMCONNECTIONS 2
 
-// Função para encontrar uma porta disponível
-int get_available_port(struct sockaddr_in *addr) {
-    for (int port = 1024; port <= 65535; port++) {
-        int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-        if (sockfd < 0) {
-            continue;
-        }
-
-        addr->sin_family = AF_INET;
-        addr->sin_port = htons(port);
-        addr->sin_addr.s_addr = INADDR_ANY;
-
-        if (bind(sockfd, (struct sockaddr *)addr, sizeof(*addr)) == 0) {
-            close(sockfd);
-            return port;
-        }
-
-        close(sockfd);
-    }
-
-    return -1; // Retorna -1 se nenhuma porta estiver disponível
-}
-
-int is_socket_open(int sockfd) {
-    int optval;
-    socklen_t optlen = sizeof(optval);
-
-    if (getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &optval, &optlen) == -1) {
-        perror("getsockopt");
-        return 0; // Erro ao obter as opções do soquete
-    }
-
-    if (optval == 0)
-        return 1; // O soquete está aberto
-    else
-        return 0; // O soquete não está aberto
-}
-
 int send_command(int connfd) {
-    // Gere um número aleatório entre 1 e 3
     char buf[MAXLINE];
+    // Gere um número aleatório entre 1 e 3
     int numero = rand() % 3;
     
     // Crie um array de strings com três opções
-    char *str[3] = {"Opção A", "Opção B", "Stop"};
+    char *str[3] = {"SIMULE: CPU_INTENSIVA", "SIMULE: MEMORIA_INTENSIVA", "DESCONECTE"};
     
     snprintf(buf, sizeof(buf), "%s", str[numero]);
     write(connfd, buf, strlen(buf));
@@ -68,8 +30,8 @@ int send_command(int connfd) {
 }
 
 void write_log(FILE *log_file, const char* str){
-    printf("File: %s", str);
     fprintf(log_file, "%s", str);
+    fflush(log_file);
 }
 
 void sigchld_handler(int signo) {
@@ -93,17 +55,6 @@ int main (int argc, char **argv) {
     FILE *log_file = fopen("server_log.txt", "w");
     if (log_file == NULL) {
         perror("Failed to open log file");
-        exit(1);
-    }
-
-    // Configura o tratamento de sinais SIGCHLD para evitar zumbis
-    struct sigaction sa;
-    sa.sa_handler = sigchld_handler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
-    if (sigaction(SIGCHLD, &sa, NULL) == -1) {
-        perror("sigaction");
-        fclose(log_file);
         exit(1);
     }
 
@@ -147,27 +98,27 @@ int main (int argc, char **argv) {
     snprintf(line, sizeof(line), "Server port: %d\n", ntohs(servaddr.sin_port));
     write_log(log_file, line);
 
-    while (numConections) {
+    while (numConections--) {
         // Aceita uma conexão de cliente
         if ((connfd = accept(listenfd, (struct sockaddr *)NULL, NULL)) == -1) {
             perror("Erro ao aceitar a conexão");
             fclose(log_file);
             exit(1);
         }
-        numConections--;
         // Cria um novo processo filho para lidar com o cliente
-        pid_t child_pid = fork();
-        if (child_pid == -1) {
+        pid_t child_pid;
+        if ( (child_pid = fork()) == -1) {
             perror("fork");
             fclose(log_file);
             exit(1);
         }
 
         if (child_pid == 0) { // Processo filho
-            //close(listenfd); // Fecha o socket de escuta no processo filho
+            close(listenfd); // Fecha o socket de escuta no processo filho
 
             // Obtém o tempo atual e prepara uma mensagem de resposta
             int num = 0;
+            char line[MAXLINE + 1];
             ticks = time(NULL);
             snprintf(line, sizeof(line), "Connection at time: %.24s\r\n", ctime(&ticks));
             write_log(log_file, line);

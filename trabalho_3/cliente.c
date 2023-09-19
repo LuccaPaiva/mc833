@@ -12,18 +12,9 @@
 #define MAXLINE 4096
 
 int execute_command(const char *str){
-    /*if(strcmp(str, "Opção A")){
-        sleep(1);
-    }
-    else if(strcmp(str, "Opção B")){
-        printf("BBBBBBBB\n");
-    }
-    if(strcmp(str, "Opção C")){
-        printf("CCCCCCC\n");
-    }*/
     sleep(1);
-    printf("Comando %s executado com sucesso\n", str);
-    return strcmp(str, "Stop");
+    printf("-%s executada com sucesso\n", str);
+    return strcmp(str, "DESCONECTE");
 }
 
 int main(int argc, char **argv) {
@@ -38,6 +29,8 @@ int main(int argc, char **argv) {
         strcpy(error, "uso: ");
         strcat(error, argv[0]);
         strcat(error, " <IPaddress>");
+        perror(error, argv[1]);
+        strcat(error, " <Port>");
         perror(error);
         exit(1);
     }
@@ -53,6 +46,7 @@ int main(int argc, char **argv) {
     servaddr.sin_family = AF_INET;
     servport = atoi(argv[2]);
     servaddr.sin_port = htons(servport);
+
     if (inet_pton(AF_INET, argv[1], &servaddr.sin_addr) <= 0) {
         perror("inet_pton error");
         exit(1);
@@ -73,6 +67,8 @@ int main(int argc, char **argv) {
     // Exibe o endereço IP e o número da porta local
     printf("Local IP address: %s\n", inet_ntoa(localaddr.sin_addr));
     printf("Local port number: %d\n", ntohs(localaddr.sin_port));
+    printf("Server IP address: %s\n", inet_ntoa(servaddr.sin_addr));
+    printf("Server port number: %d\n", ntohs(servaddr.sin_port));
 
 
     // Aguarda e lê a resposta do servidor
@@ -86,7 +82,7 @@ int main(int argc, char **argv) {
     }
 
     if(!flag){
-        printf("Fechando conecao com servidor\n");
+        printf("Fechando coneção com servidor\n");
         close(sockfd);
     }
 
