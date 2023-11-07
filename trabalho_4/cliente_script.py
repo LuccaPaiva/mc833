@@ -1,12 +1,13 @@
 import socket
 import threading
+import os
 
 # Função para estabelecer uma conexão com o servidor
 def connect_to_server():
     try:
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client_socket.connect(("0.0.0.0", 1024))
-        print(f"Conectado a {client_socket.getpeername()}")
+        print(f"{threading.get_ident()} conectado a {client_socket.getpeername()}")
         client_socket.close()
     except Exception as e:
         print(f"Erro de conexão: {str(e)}")
