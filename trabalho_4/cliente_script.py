@@ -1,12 +1,14 @@
 import socket
 import threading
 import os
+import time
 
+start = time.time()
 # Função para estabelecer uma conexão com o servidor
 def connect_to_server():
     try:
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect(("0.0.0.0", 1024))
+        client_socket.connect(("0.0.0.0", 1025))
         print(f"{threading.get_ident()} conectado a {client_socket.getpeername()}")
         client_socket.close()
     except Exception as e:
@@ -28,4 +30,10 @@ for _ in range(num_clients):
 for thread in threads:
     thread.join()
 
+end = time.time()
+f = open("elapsed_time.txt", "a")
+delta_t = end - start
+s = "elapsed time:\t\t\t" + str(round(delta_t, 3)) + " s\n\n"
+f.write(s)
+f.close()
 print("Todas as conexões foram estabelecidas.")
