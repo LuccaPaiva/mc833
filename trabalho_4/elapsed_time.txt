@@ -1,0 +1,47 @@
+Rodando servidor com backlog 0
+tempo para aceitar 10 conexoes: 15.349 s
+
+Rodando servidor com backlog 1
+tempo para aceitar 10 conexoes: 15.425 s
+
+Rodando servidor com backlog 2
+tempo para aceitar 10 conexoes: 15.427 s
+
+Rodando servidor com backlog 3
+tempo para aceitar 10 conexoes: 15.397 s
+
+Rodando servidor com backlog 4
+tempo para aceitar 10 conexoes: 15.426 s
+
+Rodando servidor com backlog 5
+tempo para aceitar 10 conexoes: 15.425 s
+
+Rodando servidor com backlog 6
+tempo para aceitar 10 conexoes: 15.426 s
+
+Rodando servidor com backlog 7
+tempo para aceitar 10 conexoes: 15.425 s
+
+Rodando servidor com backlog 8
+tempo para aceitar 10 conexoes: 15.425 s
+
+Rodando servidor com backlog 9
+tempo para aceitar 10 conexoes:  0.001 s
+
+Rodando servidor com backlog 10
+tempo para aceitar 10 conexoes:  0.002 s
+
+Rodando servidor com backlog 11
+tempo para aceitar 10 conexoes:  0.001 s
+
+Rodando servidor com backlog 12
+tempo para aceitar 10 conexoes:  0.002 s
+
+Rodando servidor com backlog 13
+tempo para aceitar 10 conexoes:  0.001 s
+
+Rodando servidor com backlog 14
+tempo para aceitar 10 conexoes:  0.001 s
+
+Rodando servidor com backlog 15
+tempo para aceitar 10 conexoes:  0.001 s

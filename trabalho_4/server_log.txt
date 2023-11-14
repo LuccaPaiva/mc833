@@ -1,0 +1,2 @@
+Server IP: 0.0.0.0
+Server port: 1025

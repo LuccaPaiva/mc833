@@ -113,7 +113,6 @@ void HandleChildProcess(int child_pid, int listenfd, int connfd, FILE *log_file,
         struct sockaddr_in cliaddr;
 
         printf("Conexao Aceita de %s\n", inet_ntoa(cliaddr.sin_addr));
-        write_log(log_file, line);
 
         exit(0); // O processo filho deve sair quando terminar o atendimento ao cliente
     }
@@ -159,11 +158,18 @@ int main (int argc, char **argv) {
 
     // Cria um socket para ouvir conexões
     listenfd = Socket(AF_INET, SOCK_STREAM, 0, log_file);
-
     // Associa o socket à porta e endereço IP obtidos
     Bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr), log_file);
 
+    int udpfd = Socket(AF_INET, SOCK_DGRAM, 0, log_file);
+    Bind(udpfd, (struct sockaddr *)&servaddr, sizeof(servaddr), log_file);
+
     Listen(listenfd, backlog, log_file);
+
+    fd_set all_fds, read_fds;
+    FD_ZERO(&all_fds);
+    FD_SET(listenfd, &all_fds); // Adiciona o socket TCP ao conjunto
+    FD_SET(udpfd, &all_fds);    // Adiciona o socket UDP ao conjunto
 
     time_t start_time = time(NULL);
 
@@ -171,21 +177,33 @@ int main (int argc, char **argv) {
     sleep(5);
     int numConections = NUMCONNECTIONS;
     while (1) {
-        sleep(1);
+        read_fds = all_fds; // Copia o conjunto para preservar o original
+
+        if (select(FD_SETSIZE, &read_fds, NULL, NULL, NULL) == -1) {
+            perror("select");
+            fclose(log_file);
+            exit(1);
+        }
+
         // Aceita uma conexão de cliente
-        //connfd = Accept(listenfd, log_file);
+        connfd = Accept(listenfd, log_file);
         // Cria um novo processo filho para lidar com o cliente
-        //pid_t child_pid = Fork(log_file);
-        //HandleChildProcess(child_pid, listenfd, connfd, log_file, recvline);
-        if(--numConections <= 0)
-            break;
-        /*
-        time_t current_time = time(NULL);
-        if (current_time - start_time >= 20) {
-            printf("%ld\n", current_time);
-            break;
-        }*/
+
+        // Verifica se há atividade no socket TCP
+        if (FD_ISSET(listenfd, &read_fds)) {
+            printf("TCP\n");
+            pid_t child_pid = Fork(log_file);
+            HandleChildProcess(child_pid, listenfd, connfd, log_file, recvline);
+        }
+
+        // Verifica se há atividade no socket UDP
+        if (FD_ISSET(udpfd, &read_fds)) {
+            printf("UDP\n");
+            pid_t child_pid = Fork(log_file);
+            HandleChildProcess(child_pid, udpfd, connfd, log_file, recvline);
+        }
     }
+
 
     fclose(log_file);
     return(0);
