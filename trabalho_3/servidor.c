@@ -14,7 +14,7 @@
 #define LISTENQ 10
 #define MAXDATASIZE 100
 #define MAXLINE 4096
-#define NUMCONNECTIONS 2
+#define NUMCONNECTIONS 10
 
 void write_log(FILE *log_file, const char* str){
     fprintf(log_file, "%s", str);
@@ -50,8 +50,8 @@ int Bind(int listenfd, struct sockaddr *servaddr, socklen_t addrlen, FILE *log_f
 
 
 
-void Listen(int listenfd, FILE *log_file) {
-    if (listen(listenfd, LISTENQ) == -1) {
+void Listen(int listenfd, int backlog, FILE *log_file) {
+    if (listen(listenfd, backlog) == -1) {
         perror("listen");
         fclose(log_file);
         exit(1);
@@ -64,8 +64,8 @@ int Accept(int listenfd, FILE *log_file){
         perror("Erro ao aceitar a conexão");
         fclose(log_file);
         exit(1);
-    } else
-        return connfd;
+    }
+    return connfd;
 }
 
 pid_t Fork(FILE *log_file){
@@ -107,31 +107,14 @@ void HandleChildProcess(int child_pid, int listenfd, int connfd, FILE *log_file,
         close(listenfd); // Fecha o socket de escuta no processo filho
 
         // Obtém o tempo atual e prepara uma mensagem de resposta
-        int num = 0;
         char line[MAXLINE + 1];
-        time_t ticks;
-        ticks = time(NULL);
 
         // Obtém informações sobre o cliente (endereço IP e porta)
         struct sockaddr_in cliaddr;
-        socklen_t clilen = sizeof(cliaddr);
 
-        GetPeerName(connfd, (struct sockaddr *)&cliaddr, &clilen, log_file);
-
-        snprintf(line, sizeof(line), "%d - %.24s Abrindo conecao\n\tClient connected from port: %d\n", getpid(), ctime(&ticks), ntohs(cliaddr.sin_port));
+        printf("Conexao Aceita de %s\n", inet_ntoa(cliaddr.sin_addr));
         write_log(log_file, line);
 
-        snprintf(line, sizeof(line), "\tServer Thread: %d\n", getpid());
-        write_log(log_file, line);
-
-        int n = 1;
-        while (num != 2 && n) {
-            // Chama a função para enviar um comando ao cliente
-            num = send_command(connfd, getpid(), log_file);
-            n = read(connfd, recvline, MAXLINE);
-        }
-        snprintf(line, sizeof(line), "\t%.24s Fechando\n", ctime(&ticks));
-        write_log(log_file, line);
         exit(0); // O processo filho deve sair quando terminar o atendimento ao cliente
     }
     close(connfd); // Fecha o socket no processo pai, pois o processo filho lidará com o cliente
@@ -140,14 +123,16 @@ void HandleChildProcess(int child_pid, int listenfd, int connfd, FILE *log_file,
 
 
 int main (int argc, char **argv) {
-    int    listenfd, connfd, numConections = NUMCONNECTIONS;
+    int    listenfd, connfd;
     struct sockaddr_in servaddr;
     char   error[MAXLINE + 1], recvline[MAXLINE + 1];
 
-    if (argc != 2) {
+    if (argc != 3) {
         strcpy(error, "uso: ");
         strcat(error, argv[0]);
         strcat(error, " <Port>");
+        perror(error);
+        strcat(error, " <backlog>");
         perror(error);
         exit(1);
     }
@@ -160,6 +145,8 @@ int main (int argc, char **argv) {
 
     // Obtém uma porta disponível usando a função get_available_port
     int port = atoi(argv[1]);
+    int backlog = atoi(argv[2]);
+    
     if (port == -1){
         printf("No available ports found\n");
         fclose(log_file);
@@ -176,15 +163,28 @@ int main (int argc, char **argv) {
     // Associa o socket à porta e endereço IP obtidos
     Bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr), log_file);
 
-    Listen(listenfd, log_file);
+    Listen(listenfd, backlog, log_file);
 
-    while (numConections--) {
+    time_t start_time = time(NULL);
+
+    printf("Server IP: %s\n", inet_ntoa((servaddr.sin_addr)));
+    sleep(5);
+    int numConections = NUMCONNECTIONS;
+    while (1) {
+        sleep(1);
         // Aceita uma conexão de cliente
-        connfd = Accept(listenfd, log_file);
+        //connfd = Accept(listenfd, log_file);
         // Cria um novo processo filho para lidar com o cliente
-        pid_t child_pid = Fork(log_file);
-
-        HandleChildProcess(child_pid, listenfd, connfd, log_file, recvline);
+        //pid_t child_pid = Fork(log_file);
+        //HandleChildProcess(child_pid, listenfd, connfd, log_file, recvline);
+        if(--numConections <= 0)
+            break;
+        /*
+        time_t current_time = time(NULL);
+        if (current_time - start_time >= 20) {
+            printf("%ld\n", current_time);
+            break;
+        }*/
     }
 
     fclose(log_file);
